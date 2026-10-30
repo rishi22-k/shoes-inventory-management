@@ -1,21 +1,50 @@
-
 <?php
 include 'db.php';
 
 $message = "";
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $name = mysqli_real_escape_string($conn, $_POST['name']);
-    $email = mysqli_real_escape_string($conn, $_POST['email']);
-    $msg = mysqli_real_escape_string($conn, $_POST['message']);
 
-    $sql = "INSERT INTO contacts (name, email, message)
-            VALUES ('$name', '$email', '$msg')";
+    $name = trim($_POST['name'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $msg = trim($_POST['message'] ?? '');
 
-    if (mysqli_query($conn, $sql)) {
-        $message = "Message sent successfully!";
+    if (
+        $name === '' ||
+        strlen($name) > 100 ||
+        !filter_var($email, FILTER_VALIDATE_EMAIL) ||
+        strlen($email) > 254 ||
+        $msg === '' ||
+        strlen($msg) > 2000
+    ) {
+        $message = "Please enter valid details.";
     } else {
-        $message = "Error saving message. Please try again.";
+
+        $stmt = mysqli_prepare(
+            $conn,
+            "INSERT INTO contacts (name, email, message)
+             VALUES (?, ?, ?)"
+        );
+
+        if ($stmt) {
+            mysqli_stmt_bind_param(
+                $stmt,
+                "sss",
+                $name,
+                $email,
+                $msg
+            );
+
+            if (mysqli_stmt_execute($stmt)) {
+                $message = "Message sent successfully!";
+            } else {
+                $message = "Unable to send message. Please try again.";
+            }
+
+            mysqli_stmt_close($stmt);
+        } else {
+            $message = "Unable to process your request.";
+        }
     }
 }
 ?>
@@ -30,17 +59,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <body>
     <h1>Contact Us</h1>
 
-    <p><?php echo htmlspecialchars($message); ?></p>
+    <p><?php echo htmlspecialchars($message, ENT_QUOTES, 'UTF-8'); ?></p>
 
     <form method="POST" action="contact.php">
         <label>Name:</label><br>
-        <input type="text" name="name" required><br><br>
+        <input type="text" name="name" maxlength="100" required><br><br>
 
         <label>Email:</label><br>
-        <input type="email" name="email" required><br><br>
+        <input type="email" name="email" maxlength="254" required><br><br>
 
         <label>Message:</label><br>
-        <textarea name="message" required></textarea><br><br>
+        <textarea name="message" maxlength="2000" required></textarea><br><br>
 
         <button type="submit">Send Message</button>
     </form>
